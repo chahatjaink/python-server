@@ -21,11 +21,9 @@ def validate_user_data(data):
             return False, f"Missing required field: {field}"
     return True, None
 
-
 def is_email_unique(email):
     existing_user = collection.find_one({"email": email})
     return existing_user is None
-
 
 @app.route('/user', methods=['POST'])
 def create_user():
@@ -41,12 +39,13 @@ def create_user():
         email = request.json["email"]
         age = request.json.get("age")
         department = request.json.get("department")
+        isActive = request.json.get("isActive", False)
 
         if not is_email_unique(email):
             return jsonify({"error": "Email already exists"}), 409
 
         collection.insert_one({"name": name, "email": email,
-                               "age": age, "department": department})
+                               "age": age, "department": department, "isActive": isActive})
         return jsonify({"message": "User created successfully"}), 201
     except Exception as e:
         print(f"Error: {e}")
@@ -56,7 +55,7 @@ def create_user():
 @app.route('/users', methods=['GET'])
 def get_users():
     try:
-        cursor = collection.find({})
+        cursor = collection.find({"isActive": True})
         users_list = []
         for document in cursor:
             document['_id'] = str(document['_id'])
