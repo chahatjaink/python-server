@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from bson import ObjectId
 import pymongo
 
 app = Flask(__name__)
@@ -7,8 +8,9 @@ try:
     client = pymongo.MongoClient(
         host="localhost", port=27017, serverSelectionTimeoutMS=1000)
     db = client.company
+    collection = db["users"]
     client.server_info()
-except:
+except pymongo.errors.ServerSelectionTimeoutError:
     print("Error: Cannot connect to MongoDB")
 
 
@@ -21,7 +23,7 @@ def validate_user_data(data):
 
 
 def is_email_unique(email):
-    existing_user = db.users.find_one({"email": email})
+    existing_user = collection.find_one({"email": email})
     return existing_user is None
 
 
@@ -37,15 +39,31 @@ def create_user():
 
         name = request.json["name"]
         email = request.json["email"]
-        age = request.json.get("age")  # Using get() to handle optional field
+        age = request.json.get("age")
         department = request.json.get("department")
 
         if not is_email_unique(email):
             return jsonify({"error": "Email already exists"}), 409
 
-        db.users.insert_one({"name": name, "email": email,
-                            "age": age, "department": department})
+        collection.insert_one({"name": name, "email": email,
+                               "age": age, "department": department})
         return jsonify({"message": "User created successfully"}), 201
+    except Exception as e:
+        print(f"Error: {e}")
+        return jsonify({"error": "Internal Server Error"}), 500
+
+
+@app.route('/users', methods=['GET'])
+def get_users():
+    try:
+        cursor = collection.find({})
+        users_list = []
+        for document in cursor:
+            document['_id'] = str(document['_id'])
+            users_list.append(document)
+
+        return jsonify({"users": users_list}), 200
+
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
